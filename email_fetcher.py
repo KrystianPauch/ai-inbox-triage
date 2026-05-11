@@ -16,14 +16,16 @@ MESSAGES = {
         "error": "Login failed: {error}",
         "analysis": "--- Analyzing the last 3 messages ---",
         "sender": "Sender",
-        "subject": "Subject"
+        "subject": "Subject",
+        "body": "Body snippet"
     },
     "pl": {
         "success": "Zalogowano pomyślnie! Masz {count} nieprzeczytanych wiadomości.",
         "error": "Błąd logowania: {error}",
         "analysis": "--- Analiza ostatnich 3 wiadomości ---",
         "sender": "Nadawca",
-        "subject": "Temat"
+        "subject": "Temat",
+        "body": "Fragment treści"
     }
 }
 
@@ -38,6 +40,26 @@ def clean_text(text):
         else:
             clean_string += part
     return clean_string
+
+def get_email_body(msg):
+    body = ""
+    if msg.is_multipart():
+        for part in msg.walk():
+            content_type = part.get_content_type()
+            content_disposition = str(part.get("Content-Disposition"))
+            
+            if content_type == "text/plain" and "attachment" not in content_disposition:
+                try:
+                    body = part.get_payload(decode=True).decode()
+                    break
+                except:
+                    pass
+    else:
+        try:
+            body = msg.get_payload(decode=True).decode()
+        except:
+            pass
+    return body.strip()
 
 def check_inbox(language='en'):
     try:
@@ -61,8 +83,12 @@ def check_inbox(language='en'):
                     sender = clean_text(msg.get("From"))
                     subject = clean_text(msg.get("Subject"))
                     
+                    full_body = get_email_body(msg)
+                    body_snippet = full_body[:100].replace('\n', ' ') + "..." if len(full_body) > 100 else full_body
+                    
                     print(f"{MESSAGES[language]['sender']}: {sender}")
-                    print(f"{MESSAGES[language]['subject']}: {subject}\n")
+                    print(f"{MESSAGES[language]['subject']}: {subject}")
+                    print(f"{MESSAGES[language]['body']}: {body_snippet}\n")
         
         mail.logout()
 
