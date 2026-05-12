@@ -4,6 +4,7 @@ import email
 import argparse
 from email.header import decode_header
 from dotenv import load_dotenv
+from ai_analyzer import analyze_emails
 
 # Load environment variables from .env file
 load_dotenv()
@@ -113,4 +114,8 @@ if __name__ == "__main__":
     
 
     fetched_data = check_inbox(language=args.lang)
+    if fetched_data:
+        print("\n[AI] Starting analysis...")
+        report = analyze_emails(fetched_data)
+        print(report)
     print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
