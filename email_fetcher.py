@@ -68,49 +68,49 @@ def get_email_body(msg):
     return body.strip()
 
 def check_inbox(language='en'):
-    """Connects to the IMAP server, counts unread emails, and fetches the latest 3."""
+    """Connects to the IMAP server and returns a list of the latest 3 emails."""
+    emails_data = [] 
+
     try:
-        # Establish secure SSL connection
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(EMAIL, PASSWORD)
         mail.select('inbox')
         
-        # Search for unread messages
         status, response = mail.search(None, 'UNSEEN')
         email_ids = response[0].split()
         unread_count = len(email_ids)
         print(MESSAGES[language]['success'].format(count=unread_count))
         
-        print(f"\n{MESSAGES[language]['analysis']}")
         latest_emails = email_ids[-3:] 
         
-        # Fetch and process the latest emails
         for e_id in latest_emails:
-            # Use PEEK to avoid marking emails as read
             status, msg_data = mail.fetch(e_id, '(BODY.PEEK[])')
             for response_part in msg_data:
                 if isinstance(response_part, tuple):
                     msg = email.message_from_bytes(response_part[1])
                     sender = clean_text(msg.get("From"))
                     subject = clean_text(msg.get("Subject"))
-                    
                     full_body = get_email_body(msg)
-                    body_snippet = full_body[:100].replace('\n', ' ') + "..." if len(full_body) > 100 else full_body
                     
-                    print(f"{MESSAGES[language]['sender']}: {sender}")
-                    print(f"{MESSAGES[language]['subject']}: {subject}")
-                    print(f"{MESSAGES[language]['body']}: {body_snippet}\n")
+                    # Pakujemy dane do słownika i wrzucamy na listę
+                    emails_data.append({
+                        "sender": sender,
+                        "subject": subject,
+                        "body": full_body
+                    })
         
-        # Safely close the connection
         mail.logout()
+        return emails_data 
 
     except Exception as e:
         print(MESSAGES[language]['error'].format(error=e))
+        return []
 
 if __name__ == "__main__":
-    # Setup command-line argument parsing
     parser = argparse.ArgumentParser(description="Fetch and analyze emails for AI Inbox Triage")
     parser.add_argument("--lang", choices=["en", "pl"], default="en", help="Select UI language (en or pl)")
     args = parser.parse_args()
     
-    check_inbox(language=args.lang)
+
+    fetched_data = check_inbox(language=args.lang)
+    print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
