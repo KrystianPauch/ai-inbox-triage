@@ -114,8 +114,17 @@ if __name__ == "__main__":
     
 
     fetched_data = check_inbox(language=args.lang)
+    fetched_data = check_inbox(language=args.lang)
+
+    print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
+
     if fetched_data:
-        print("\n[AI] Starting analysis...")
+        print("[AI] Starting analysis...")
+        print("\n" + "="*50)
+        print("         AI INBOX TRIAGE REPORT")
+        print("="*50)
+        
         report = analyze_emails(fetched_data)
         print(report)
-    print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
+        
+        print("="*50)

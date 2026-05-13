@@ -25,12 +25,14 @@ def analyze_emails(emails):
         email_context += f"Content: {mail['body'][:500]}\n" # Limit body for the prompt
 
     prompt = f"""
-    You are an AI Email Assistant. Analyze the following emails and for each one:
-    1. Give it a Priority (Low, Medium, High).
-    2. Categorize it (e.g., Work, University, Spam, Social).
-    3. Provide a 1-sentence summary in English.
+    You are an elite AI Email Triage Specialist. Analyze the following emails.
+    For each email, provide the following fields in a clear, structured way:
+    - [PRIORITY]: HIGH, MEDIUM, or LOW (High only if action is needed urgently).
+    - [CATEGORY]: (Work, University, Finance, Newsletter, or Spam).
+    - [SUMMARY]: A concise, one-sentence summary in English.
+    - [ACTION]: Suggest a quick next step (e.g., 'Reply today', 'Archive', 'Ignore').
 
-    Emails to analyze:
+    Emails:
     {email_context}
     """
 
