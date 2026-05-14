@@ -1,4 +1,3 @@
-```markdown
 # AI Inbox Triage
 
 An intelligent email filtering and summarization tool built with Python. It connects to a Gmail inbox via IMAP, extracts unread messages, and uses the Google Gemini AI model to categorize and summarize them, separating important emails from the noise.
@@ -18,52 +17,35 @@ An intelligent email filtering and summarization tool built with Python. It conn
 ## Setup & Installation
 
 1. **Clone the repository:**
-   ```bash
-   git clone <your-repository-url>
-   cd ai_email_triage
-
+```bash
+git clone <your-repository-url>
+cd ai_email_triage
 ```
-
 2. **Set up a virtual environment (optional but recommended):**
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows use: venv\Scripts\activate
-
 ```
-
-
 3. **Install dependencies:**
 ```bash
 pip install google-generativeai python-dotenv
-
 ```
-
-
 4. **Environment Variables:**
 Create a `.env` file in the root directory and add your credentials:
 ```text
 EMAIL_ADDRESS=your.email@gmail.com
 EMAIL_PASSWORD=your_app_password
 GEMINI_API_KEY=your_google_ai_studio_key
-
 ```
-
-
-
 ## Usage
 
 Run the script from the terminal. By default, it runs with the English UI.
 
 **English UI:**
-
 ```bash
 python email_fetcher.py
-
 ```
-
 **Polish UI:**
-
 ```bash
 python email_fetcher.py --lang pl
-
 ```
