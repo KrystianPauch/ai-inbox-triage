@@ -49,3 +49,7 @@ python email_fetcher.py
 ```bash
 python email_fetcher.py --lang pl
 ```
+
+## 🚧 Known Issues & TODO
+* **[Issue]:** Gemini API (Free Tier) blocks requests from the EU region, resulting in 429 and 404 errors.
+* **[TODO]:** Migrate the AI engine to a fully local solution (Ollama). This will bypass regional restrictions, eliminate potential API costs, and ensure 100% privacy for email content.

@@ -1,10 +1,9 @@
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 # Load API key from environment
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 def analyze_emails(emails):
     """
@@ -13,8 +12,8 @@ def analyze_emails(emails):
     if not emails:
         return "No emails to analyze."
 
-    # Initialize the model (Gemini 1.5 Flash is fast and free)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Initialize the new GenAI client
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     # Prepare the data for the prompt
     email_context = ""
@@ -37,7 +36,11 @@ def analyze_emails(emails):
     """
 
     try:
-        response = model.generate_content(prompt)
+        # New generate_content syntax
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"AI Analysis failed: {e}"

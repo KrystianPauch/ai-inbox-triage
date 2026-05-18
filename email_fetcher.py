@@ -111,20 +111,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch and analyze emails for AI Inbox Triage")
     parser.add_argument("--lang", choices=["en", "pl"], default="en", help="Select UI language (en or pl)")
     args = parser.parse_args()
-    
 
     fetched_data = check_inbox(language=args.lang)
-    fetched_data = check_inbox(language=args.lang)
-
-    print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
 
     if fetched_data:
-        print("[AI] Starting analysis...")
-        print("\n" + "="*50)
-        print("         AI INBOX TRIAGE REPORT")
-        print("="*50)
-        
+        if args.lang == "pl":
+            print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
+            print("[AI] Rozpoczynam analizę...")
+            print("\n" + "="*50)
+            print("         RAPORT AI INBOX TRIAGE")
+            print("="*50)
+        else:
+            print(f"\n[System] Fetched {len(fetched_data)} messages ready for analysis.")
+            print("[AI] Starting analysis...")
+            print("\n" + "="*50)
+            print("         AI INBOX TRIAGE REPORT")
+            print("="*50)
+
         report = analyze_emails(fetched_data)
         print(report)
-        
+
         print("="*50)
