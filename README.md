@@ -1,55 +1,89 @@
 # AI Inbox Triage
 
-An intelligent email filtering and summarization tool built with Python. It connects to a Gmail inbox via IMAP, extracts unread messages, and uses the Google Gemini AI model to categorize and summarize them, separating important emails from the noise.
+A privacy-focused, local-first email categorization and triage tool. It automatically fetches unread emails via IMAP and analyzes them using a local Ollama server running Meta's Llama 3 model. 
+
+Designed for local execution: **Zero API costs. No cloud processing.**
 
 ## Features
-* **Secure IMAP Connection:** Safely fetches emails without marking them as read using the `PEEK` command.
-* **Content Extraction:** Automatically parses multipart emails to extract clean, plain text bodies while ignoring attachments.
-* **AI-Powered Analysis:** Integrates with Google Gemini (1.5 Flash) to assign priorities, categorize content, and generate one-sentence summaries.
-* **Bilingual CLI:** Command-line interface supports both English and Polish outputs.
+* **Local Execution:** Emails are processed entirely on your local machine.
+* **Dynamic Language Support:** Generates structured triage reports in English or Polish via terminal flags.
+* **Smart Categorization:** Classifies emails into Work, University, Finance, Newsletter, or Spam.
+* **Urgency Triage:** Assigns priority levels (HIGH, MEDIUM, LOW) and suggests concrete next steps.
+* **Clean Dependency Tree:** Lightweight, decoupled architecture ready for packaging.
 
-## Tech Stack
-* **Language:** Python 3
-* **Libraries:** `imaplib`, `email`, `argparse`
-* **AI Integration:** `google-generativeai` (Gemini API)
-* **Environment Management:** `python-dotenv`
+## Privacy & Security
+This application is built with privacy in mind. It processes emails locally on your hardware. No email content is transmitted to external AI APIs or third-party cloud services.
 
-## Setup & Installation
+* **Account Security:** Users are entirely responsible for securing their own credentials and local environment. 
+* **App Passwords:** **Never use your primary email password directly.** Always generate and use an App-Specific Password (e.g., via Google Account settings) for IMAP access.
 
-1. **Clone the repository:**
-```bash
-git clone <your-repository-url>
-cd ai_email_triage
+## Prerequisites
+* **Python:** 3.10 or higher
+* **Ollama:** Installed and running locally (Download from [ollama.com](https://ollama.com))
+* **Model:** Llama 3 pulled locally:
+  ```bash
+  ollama run llama3
+
 ```
-2. **Set up a virtual environment (optional but recommended):**
+
+## 🛠️ Setup & Installation
+
+1. **Clone the repository** and navigate to the project root:
+```bash
+cd ai-inbox-triage
+
+```
+
+
+2. **Create and activate a virtual environment:**
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
+# On Windows:
+.\venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
 ```
+
+
 3. **Install dependencies:**
 ```bash
-pip install google-generativeai python-dotenv
+pip install -r requirements.txt
+
 ```
-4. **Environment Variables:**
-Create a `.env` file in the root directory and add your credentials:
-```text
-EMAIL_ADDRESS=your.email@gmail.com
-EMAIL_PASSWORD=your_app_password
-GEMINI_API_KEY=your_google_ai_studio_key
+
+
+4. **Configure Environment Variables:**
+Create a `.env` file in the root directory. Add your IMAP credentials:
+```env
+EMAIL_ACCOUNT=your.email@gmail.com
+EMAIL_PASSWORD=your_app_specific_password
+IMAP_SERVER=imap.gmail.com
+
 ```
+
 ## Usage
 
-Run the script from the terminal. By default, it runs with the English UI.
+Run the main script to process your inbox. Use the `--lang` flag to specify the report language (defaults to `en`):
 
-**English UI:**
-```bash
-python email_fetcher.py
-```
-**Polish UI:**
 ```bash
 python email_fetcher.py --lang pl
+
 ```
 
-## 🚧 Known Issues & TODO
-* **[Issue]:** Gemini API (Free Tier) blocks requests from the EU region, resulting in 429 and 404 errors.
-* **[TODO]:** Migrate the AI engine to a fully local solution (Ollama). This will bypass regional restrictions, eliminate potential API costs, and ensure 100% privacy for email content.
+## ⚠️ Disclaimers
+
+* **AI Limitations:** AI-generated classifications and action suggestions may be inaccurate. Users should always review important emails and actions manually.
+* **Trademarks:** Llama 3 is a trademark of Meta Platforms, Inc. This project is independent and is not affiliated with, endorsed by, or sponsored by Meta or Google.
+
+## Roadmap
+
+* [ ] **Batch Processing:** Fetch and analyze large volumes of emails in small batches to stay within LLM context window limits.
+* [ ] **SQLite Persistence Layer:** Store processed email IDs locally to avoid redundant analyses.
+* [ ] **Interactive Actions:** Provide a UI/CLI option to directly archive, delete, or flag emails on the IMAP server.
+* [ ] **Desktop GUI:** Package the application into a user-friendly desktop interface.
+* [ ] **Standalone Installer:** Bundle everything into a single `.exe` file for end-users, with automated Ollama dependency checks.
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.

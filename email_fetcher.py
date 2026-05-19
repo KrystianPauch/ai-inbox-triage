@@ -93,7 +93,6 @@ def check_inbox(language='en'):
                     subject = clean_text(msg.get("Subject"))
                     full_body = get_email_body(msg)
                     
-                    # Pakujemy dane do słownika i wrzucamy na listę
                     emails_data.append({
                         "sender": sender,
                         "subject": subject,
