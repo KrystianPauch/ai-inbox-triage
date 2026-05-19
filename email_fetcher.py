@@ -128,7 +128,7 @@ if __name__ == "__main__":
             print("         AI INBOX TRIAGE REPORT")
             print("="*50)
 
-        report = analyze_emails(fetched_data)
+        report = analyze_emails(fetched_data, lang=args.lang)
         print(report)
 
         print("="*50)
