@@ -5,15 +5,14 @@ import argparse
 from email.header import decode_header
 from dotenv import load_dotenv
 from ai_analyzer import analyze_emails
+from email_manager import EmailManager
 
-# Load environment variables from .env file
 load_dotenv()
 
 EMAIL = os.getenv('EMAIL_ADDRESS')
 PASSWORD = os.getenv('EMAIL_PASSWORD')
 IMAP_SERVER = 'imap.gmail.com'
 
-# Dictionary containing localized UI strings
 MESSAGES = {
     "en": {
         "success": "Logged in successfully! You have {count} unread messages.",
@@ -34,7 +33,6 @@ MESSAGES = {
 }
 
 def clean_text(text):
-    """Decodes email headers into a readable string."""
     if not text:
         return ""
     decoded_parts = decode_header(text)
@@ -47,14 +45,12 @@ def clean_text(text):
     return clean_string
 
 def get_email_body(msg):
-    """Extracts the plain text body from an email message."""
     body = ""
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
             content_disposition = str(part.get("Content-Disposition"))
             
-            # Look exclusively for plain text and ignore attachments
             if content_type == "text/plain" and "attachment" not in content_disposition:
                 try:
                     body = part.get_payload(decode=True).decode()
@@ -69,7 +65,6 @@ def get_email_body(msg):
     return body.strip()
 
 def check_inbox(language='en'):
-    """Connects to the IMAP server and returns a list of the latest 3 emails."""
     emails_data = [] 
 
     try:
@@ -94,26 +89,28 @@ def check_inbox(language='en'):
                     full_body = get_email_body(msg)
                     
                     emails_data.append({
+                        "id": e_id,
                         "sender": sender,
                         "subject": subject,
                         "body": full_body
                     })
         
-        mail.logout()
-        return emails_data 
+        return emails_data, mail
 
     except Exception as e:
         print(MESSAGES[language]['error'].format(error=e))
-        return []
+        return [], None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch and analyze emails for AI Inbox Triage")
     parser.add_argument("--lang", choices=["en", "pl"], default="en", help="Select UI language (en or pl)")
     args = parser.parse_args()
 
-    fetched_data = check_inbox(language=args.lang)
+    fetched_data, mail_connection = check_inbox(language=args.lang)
 
-    if fetched_data:
+    if fetched_data and mail_connection:
+        manager = EmailManager(mail_connection, lang=args.lang)
+
         if args.lang == "pl":
             print(f"\n[System] Pobrano do pamięci {len(fetched_data)} wiadomości gotowych do analizy.")
             print("[AI] Rozpoczynam analizę...")
@@ -127,7 +124,37 @@ if __name__ == "__main__":
             print("         AI INBOX TRIAGE REPORT")
             print("="*50)
 
-        report = analyze_emails(fetched_data, lang=args.lang)
-        print(report)
+        for email_data in fetched_data:
 
+            report = analyze_emails([email_data], lang=args.lang)
+            print(report)
+
+            if "spam" in report.lower() or "newsletter" in report.lower():
+                prompt = "🚨 Czy usunąć do Kosza? (T/n): " if args.lang == "pl" else "🚨 Move to Trash? (Y/n): "
+                decision = input(prompt).strip().lower()
+                
+                if decision in ['t', 'y', '']: 
+                    status = manager.trash_email(email_data["id"])
+                    print(f"✅ {status}")
+                else:
+                    print("⏭️ Zignorowano." if args.lang == "pl" else "⏭️ Ignored.")
+            else:
+                status = manager.mark_as_read(email_data["id"])
+                print(f"✅ Zachowano. {status}" if args.lang == "pl" else f"✅ Kept. {status}")
+            
+        print("-" * 50)
+
+        mail_connection.expunge()
+        
+        print("\n" + "="*50)
+        empty_prompt = "🗑️ Czy chcesz trwale opróżnić Kosz ze wszystkich starych wiadomości? (t/N): " if args.lang == "pl" else "🗑️ Empty Trash completely? (y/N): "
+        if input(empty_prompt).strip().lower() in ['t', 'y']:
+            print(manager.empty_trash())
+
+        mail_connection.logout()
+        
+        if args.lang == "pl":
+            print("\n[System] Zakończono procesowanie. Wylogowano.")
+        else:
+            print("\n[System] Processing complete. Logged out.")
         print("="*50)
