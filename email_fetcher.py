@@ -2,6 +2,7 @@ import os
 import imaplib
 import email
 import argparse
+import email.utils
 from email.header import decode_header
 from dotenv import load_dotenv
 from ai_analyzer import analyze_emails
@@ -83,20 +84,30 @@ def check_inbox(language='en', limit=10):
         for e_id in latest_emails:
             status, msg_data = mail.fetch(e_id, '(BODY.PEEK[])')
             for response_part in msg_data:
+                
                 if isinstance(response_part, tuple):
                     msg = email.message_from_bytes(response_part[1])
                     sender = clean_text(msg.get("From"))
                     subject = clean_text(msg.get("Subject"))
+                    
+                    raw_date = msg.get("Date")
+                    try:
+                        parsed_date = email.utils.parsedate_to_datetime(raw_date)
+                        date_str = parsed_date.strftime("%Y-%m-%d %H:%M")
+                    except Exception:
+                        date_str = str(raw_date)
+                    
                     full_body = get_email_body(msg)
                     
                     emails_data.append({
                         "id": e_id,
                         "sender": sender,
                         "subject": subject,
+                        "date": date_str,
                         "body": full_body
                     })
         
-        return emails_data, mail
+        return emails_data, mail 
 
     except Exception as e:
         print(MESSAGES[language]['error'].format(error=e))

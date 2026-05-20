@@ -7,7 +7,7 @@ class EmailManager:
         self.lang = lang
 
     def mark_as_read(self, email_id):
-        """Applies the \Seen flag to the specified email."""
+        """Applies the \\Seen flag to the specified email."""
         try:
             self.mail.store(email_id, '+FLAGS', '\\Seen')
             return f"[{email_id}] Oznaczono jako przeczytane." if self.lang == "pl" else f"[{email_id}] Marked as read."
@@ -31,21 +31,35 @@ class EmailManager:
         except Exception as e:
             return f"Błąd operacji IMAP: {e}" if self.lang == "pl" else f"IMAP operation error: {e}"
 
-    def archive_email(self, email_id, archive_folder="Archive"):
+ 
+    def archive_email(self, email_id, archive_folder=None):
         """Moves an email to the Archive folder."""
+        if archive_folder is None:
+            archive_folder = "[Gmail]/All Mail" if self.lang == "en" else "[Gmail]/Wszystkie"
         return self.move_to_folder(email_id, archive_folder)
 
-    def trash_email(self, email_id, trash_folder="Trash"):
+    def trash_email(self, email_id, trash_folder=None):
         """Moves an email to the Trash folder."""
+        if trash_folder is None:
+            trash_folder = "[Gmail]/Trash" if self.lang == "en" else "[Gmail]/Kosz"
         return self.move_to_folder(email_id, trash_folder)
 
-    def empty_trash(self, trash_folder="Trash"):
+    def empty_trash(self, trash_folder=None):
         """Permanently deletes all emails in the specified Trash folder."""
+        if trash_folder is None:
+            trash_folder = "[Gmail]/Trash" if self.lang == "en" else "[Gmail]/Kosz"
+            
         try:
             self.mail.select(f'"{trash_folder}"')
-            self.mail.expunge()
-            # Return to INBOX so we don't break the main loop
+            
+            status, response = self.mail.search(None, 'ALL')
+            if status == 'OK':
+                email_ids = response[0].split()
+                for e_id in email_ids:
+                    self.mail.store(e_id, '+FLAGS', '\\Deleted')
+                self.mail.expunge()
+                
             self.mail.select('INBOX')
-            return "Kosz opróżniony." if self.lang == "pl" else "Trash emptied successfully."
+            return "Kosz został trwale opróżniony." if self.lang == "pl" else "Trash emptied successfully."
         except Exception as e:
             return f"Błąd opróżniania kosza: {e}" if self.lang == "pl" else f"Error emptying trash: {e}"

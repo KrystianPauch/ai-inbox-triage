@@ -20,9 +20,9 @@ def analyze_emails(emails, lang="pl"):
     for idx, mail in enumerate(emails):
         email_context += f"\n--- Email #{idx+1} ---\n"
         email_context += f"Od: {mail['sender']}\n"
+        email_context += f"Data: {mail['date']}\n" # Wstrzykiwanie daty do kontekstu AI
         email_context += f"Temat: {mail['subject']}\n"
         email_context += f"Treść: {mail['body'][:500]}\n"
-
 
     if lang == "pl":
         prompt = f"""Jesteś zaawansowanym asystentem AI ds. zarządzania pocztą. 
@@ -31,6 +31,7 @@ ZABRONIONE JEST używanie jakichkolwiek wstępów typu "Here is the analysis", "
 
 Dla każdej wiadomości zwróć ściśle poniższy format:
 - [AUTOR]: (Imię, nazwisko lub nazwa firmy) (podaj pełny adres e-mail w nawiasach)
+- [DATA]: (Przepisz dokładnie datę i godzinę podaną w kontekście wiadomości)
 - [TEMAT]: (Oryginalny temat wiadomości)
 - [PRIORYTET]: WYSOKI, ŚREDNI lub NISKI.
 - [KATEGORIA]: (Praca, Uczelnia, Finanse, Newsletter lub Spam).
@@ -45,6 +46,7 @@ DO NOT include any conversational filler like 'Here is the analysis...'. Output 
 
 For each email, provide the following fields in English:
 - [SENDER]: (Name or company) (include full email address in parentheses)
+- [DATE]: (Copy exactly the date and time provided in the email context)
 - [SUBJECT]: (Original email subject)
 - [PRIORITY]: HIGH, MEDIUM, or LOW.
 - [CATEGORY]: (Work, University, Finance, Newsletter, or Spam).
