@@ -64,8 +64,9 @@ def get_email_body(msg):
             pass
     return body.strip()
 
-def check_inbox(language='en'):
+def check_inbox(language='en', limit=10):
     emails_data = [] 
+    limit = min(limit, 10)
 
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
@@ -77,7 +78,7 @@ def check_inbox(language='en'):
         unread_count = len(email_ids)
         print(MESSAGES[language]['success'].format(count=unread_count))
         
-        latest_emails = email_ids[-3:] 
+        latest_emails = email_ids[-limit:] 
         
         for e_id in latest_emails:
             status, msg_data = mail.fetch(e_id, '(BODY.PEEK[])')
@@ -104,9 +105,10 @@ def check_inbox(language='en'):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch and analyze emails for AI Inbox Triage")
     parser.add_argument("--lang", choices=["en", "pl"], default="en", help="Select UI language (en or pl)")
+    parser.add_argument("--limit", type=int, default=10, help="Limit pobieranych wiadomości (max 10)")
     args = parser.parse_args()
 
-    fetched_data, mail_connection = check_inbox(language=args.lang)
+    fetched_data, mail_connection = check_inbox(language=args.lang, limit=args.limit)
 
     if fetched_data and mail_connection:
         manager = EmailManager(mail_connection, lang=args.lang)
@@ -127,22 +129,33 @@ if __name__ == "__main__":
         for email_data in fetched_data:
 
             report = analyze_emails([email_data], lang=args.lang)
-            print(report)
-
-            if "spam" in report.lower() or "newsletter" in report.lower():
-                prompt = "🚨 Czy usunąć do Kosza? (T/n): " if args.lang == "pl" else "🚨 Move to Trash? (Y/n): "
-                decision = input(prompt).strip().lower()
-                
-                if decision in ['t', 'y', '']: 
-                    status = manager.trash_email(email_data["id"])
-                    print(f"✅ {status}")
-                else:
-                    print("⏭️ Zignorowano." if args.lang == "pl" else "⏭️ Ignored.")
-            else:
-                status = manager.mark_as_read(email_data["id"])
-                print(f"✅ Zachowano. {status}" if args.lang == "pl" else f"✅ Kept. {status}")
             
-        print("-" * 50)
+            if args.lang == "pl":
+                print(f"\n--- Wynik AI ---\n{report}")
+            else:
+                print(f"\n--- AI Analysis ---\n{report}")
+
+
+            if args.lang == "pl":
+                prompt = "Wybierz akcję: [K] Kosz | [A] Archiwum | [P] Przeczytane | [Z] Zignoruj: "
+            else:
+                prompt = "Action: [T] Trash | [A] Archive | [R] Read | [I] Ignore: "
+            
+            decision = input(prompt).strip().lower()
+            
+            if decision in ['k', 't']: 
+                status = manager.trash_email(email_data["id"])
+                print(f"🗑️ {status}")
+            elif decision == 'a':
+                status = manager.archive_email(email_data["id"])
+                print(f"📦 {status}")
+            elif decision in ['p', 'r']:
+                status = manager.mark_as_read(email_data["id"])
+                print(f"👁️ {status}")
+            else:
+                print("⏭️ Zignorowano." if args.lang == "pl" else "⏭️ Ignored.")
+            
+            print("-" * 50)
 
         mail_connection.expunge()
         
