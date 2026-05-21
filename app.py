@@ -1,0 +1,162 @@
+import os
+import customtkinter as ctk
+import imaplib
+from dotenv import load_dotenv
+from email_manager import EmailManager
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+class EmailTriageApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("AI Inbox Triage")
+        self.geometry("800x600")
+        
+        self.manager = None
+        self.current_lang = "pl"
+        self.imap_server = 'imap.gmail.com'
+
+        self.login_frame = ctk.CTkFrame(self)
+        self.main_frame = ctk.CTkFrame(self)
+
+        self.build_login_screen()
+        self.build_main_screen()
+
+        self.show_login_screen()
+
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def build_login_screen(self):
+        """Buduje interfejs ekranu logowania."""
+        load_dotenv()
+        
+        self.login_frame.pack(expand=True, fill="both", padx=50, pady=50)
+
+        ctk.CTkLabel(self.login_frame, text="Logowanie IMAP", font=("Arial", 24, "bold")).pack(pady=(40, 20))
+
+        self.email_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Adres Email", width=300)
+        self.email_entry.pack(pady=10)
+        if os.getenv('EMAIL_ADDRESS'):
+            self.email_entry.insert(0, os.getenv('EMAIL_ADDRESS'))
+
+        self.password_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Hasło App Password", show="*", width=300)
+        self.password_entry.pack(pady=10)
+        if os.getenv('EMAIL_PASSWORD'):
+            self.password_entry.insert(0, os.getenv('EMAIL_PASSWORD'))
+
+        self.lang_var = ctk.StringVar(value="pl")
+        self.lang_menu = ctk.CTkOptionMenu(self.login_frame, values=["pl", "en"], variable=self.lang_var, width=300)
+        self.lang_menu.pack(pady=10)
+
+        self.status_label = ctk.CTkLabel(self.login_frame, text="", text_color="red")
+        self.status_label.pack(pady=5)
+
+        self.login_btn = ctk.CTkButton(self.login_frame, text="Zaloguj", command=self.perform_login, width=300)
+        self.login_btn.pack(pady=20)
+
+    def build_main_screen(self):
+        """Buduje interfejs głównego panelu aplikacji."""
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(1, weight=1)
+
+        top_frame = ctk.CTkFrame(self.main_frame)
+        top_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+        self.fetch_btn = ctk.CTkButton(top_frame, text="Pobierz i Analizuj", command=self.fetch_emails)
+        self.fetch_btn.pack(side="left", padx=10, pady=10)
+
+        self.logout_btn = ctk.CTkButton(top_frame, text="Wyloguj", fg_color="#8B0000", hover_color="#550000", command=self.perform_logout)
+        self.logout_btn.pack(side="right", padx=10, pady=10)
+
+        self.textbox = ctk.CTkTextbox(self.main_frame, font=("Consolas", 13), wrap="word")
+        self.textbox.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
+
+        self.bottom_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.bottom_frame.grid(row=2, column=0, padx=0, pady=10, sticky="ew")
+
+        self.btn_trash = ctk.CTkButton(self.bottom_frame, text="Kosz", fg_color="#8B0000", hover_color="#333333")
+        self.btn_trash.pack(side="left", padx=5, expand=True, fill="x")
+
+        self.btn_archive = ctk.CTkButton(self.bottom_frame, text="Archiwum", fg_color="#555555", hover_color="#333333")
+        self.btn_archive.pack(side="left", padx=5, expand=True, fill="x")
+
+        self.btn_read = ctk.CTkButton(self.bottom_frame, text="Przeczytane", fg_color="#006400", hover_color="#333333")
+        self.btn_read.pack(side="left", padx=5, expand=True, fill="x")
+
+        self.btn_ignore = ctk.CTkButton(self.bottom_frame, text="Zignoruj", fg_color="transparent", hover_color="#333333", border_width=1)
+        self.btn_ignore.pack(side="left", padx=(5, 10), expand=True, fill="x")
+
+    def show_login_screen(self):
+        self.main_frame.pack_forget()
+        self.login_frame.pack(expand=True, fill="both")
+
+    def show_main_screen(self):
+        """Przełącza widok na główny panel i aktualizuje teksty w zależności od języka."""
+        self.login_frame.pack_forget()
+        self.main_frame.pack(expand=True, fill="both")
+        
+        if self.current_lang == "en":
+            self.fetch_btn.configure(text="Fetch & Analyze")
+            self.logout_btn.configure(text="Logout")
+            self.btn_trash.configure(text="Trash")
+            self.btn_archive.configure(text="Archive")
+            self.btn_read.configure(text="Mark as Read")
+            self.btn_ignore.configure(text="Ignore")
+        else:
+            self.fetch_btn.configure(text="Pobierz i Analizuj")
+            self.logout_btn.configure(text="Wyloguj")
+            self.btn_trash.configure(text="Kosz")
+            self.btn_archive.configure(text="Archiwum")
+            self.btn_read.configure(text="Przeczytane")
+            self.btn_ignore.configure(text="Zignoruj")
+
+    def perform_login(self):
+        """Ustanawia stałe połączenie z serwerem i przechodzi do głównego ekranu."""
+        email = self.email_entry.get().strip()
+        password = self.password_entry.get().strip()
+        self.current_lang = self.lang_var.get()
+
+        if not email or not password:
+            self.status_label.configure(text="Wpisz email i hasło!" if self.current_lang == "pl" else "Enter email and password!")
+            return
+
+        self.status_label.configure(text="Łączenie..." if self.current_lang == "pl" else "Connecting...", text_color="yellow")
+        self.update_idletasks()
+
+        try:
+            mail_conn = imaplib.IMAP4_SSL(self.imap_server)
+            mail_conn.login(email, password)
+            
+            self.manager = EmailManager(mail_conn, lang=self.current_lang)
+            self.status_label.configure(text="")
+            self.show_main_screen()
+            
+            self.textbox.insert("end", f"[System] Zalogowano poprawnie jako: {email}\n" if self.current_lang == "pl" else f"[System] Logged in successfully as: {email}\n")
+            
+        except Exception as e:
+            err_msg = f"Błąd: {e}" if self.current_lang == "pl" else f"Error: {e}"
+            self.status_label.configure(text=err_msg, text_color="red")
+
+    def fetch_emails(self):
+        self.textbox.insert("end", "[System] Pobieranie danych (wkrótce podpięte pod AI)...\n")
+
+    def perform_logout(self):
+        """Zamyka bezpiecznie sesję i wraca do ekranu logowania."""
+        if self.manager:
+            try:
+                self.manager.mail.logout()
+            except:
+                pass
+            self.manager = None
+        self.textbox.delete("1.0", "end")
+        self.show_login_screen()
+
+    def on_closing(self):
+        """Gwarantuje, że przy zamknięciu okna sesja IMAP nie zawiśnie na serwerze."""
+        self.perform_logout()
+        self.destroy()
+
+if __name__ == "__main__":
+    app = EmailTriageApp()
+    app.mainloop()

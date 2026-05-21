@@ -65,7 +65,7 @@ def get_email_body(msg):
             pass
     return body.strip()
 
-def check_inbox(language='en', limit=10):
+def check_inbox(language='en', limit=10, mode='unread', search_keyword=None):
     emails_data = [] 
     limit = min(limit, 10)
 
@@ -74,17 +74,28 @@ def check_inbox(language='en', limit=10):
         mail.login(EMAIL, PASSWORD)
         mail.select('inbox')
         
-        status, response = mail.search(None, 'UNSEEN')
+        if search_keyword:
+            status, response = mail.search('utf-8', 'TEXT', f'"{search_keyword}"')
+        elif mode == 'all':
+            status, response = mail.search(None, 'ALL')
+        else:
+            status, response = mail.search(None, 'UNSEEN')
+            
         email_ids = response[0].split()
-        unread_count = len(email_ids)
-        print(MESSAGES[language]['success'].format(count=unread_count))
+        total_found = len(email_ids)
+        
+        if search_keyword:
+            print(f"Znaleziono {total_found} wiadomości dla hasła: '{search_keyword}'." if language == "pl" else f"Found {total_found} messages for keyword: '{search_keyword}'.")
+        elif mode == 'all':
+            print(f"Pobieranie historii: {min(limit, total_found)} wiadomości." if language == "pl" else f"Fetching history: {min(limit, total_found)} messages.")
+        else:
+            print(MESSAGES[language]['success'].format(count=total_found))
         
         latest_emails = email_ids[-limit:] 
         
         for e_id in latest_emails:
             status, msg_data = mail.fetch(e_id, '(BODY.PEEK[])')
             for response_part in msg_data:
-                
                 if isinstance(response_part, tuple):
                     msg = email.message_from_bytes(response_part[1])
                     sender = clean_text(msg.get("From"))
@@ -114,14 +125,18 @@ def check_inbox(language='en', limit=10):
         return [], None
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fetch and analyze emails for AI Inbox Triage")
-    parser.add_argument("--lang", choices=["en", "pl"], default="en", help="Select UI language (en or pl)")
-    parser.add_argument("--limit", type=int, default=10, help="Limit pobieranych wiadomości (max 10)")
+    import argparse
+    parser = argparse.ArgumentParser(description="AI Inbox Triage Fetcher")
+    parser.add_argument('--lang', choices=['en', 'pl'], default='en', help="Language for output")
+    parser.add_argument('--limit', type=int, default=10, help="Number of emails to fetch")
+    parser.add_argument('--mode', choices=['unread', 'all'], default='unread', help="Fetch only 'unread' or 'all' historical emails")
+    parser.add_argument('--search', type=str, default=None, help="Deep Search IMAP by keyword")
     args = parser.parse_args()
 
-    fetched_data, mail_connection = check_inbox(language=args.lang, limit=args.limit)
-
+    fetched_data, mail_connection = check_inbox(language=args.lang, limit=args.limit, mode=args.mode, search_keyword=args.search)
+    
     if fetched_data and mail_connection:
+        from email_manager import EmailManager
         manager = EmailManager(mail_connection, lang=args.lang)
 
         if args.lang == "pl":
@@ -138,14 +153,12 @@ if __name__ == "__main__":
             print("="*50)
 
         for email_data in fetched_data:
-
             report = analyze_emails([email_data], lang=args.lang)
             
             if args.lang == "pl":
                 print(f"\n--- Wynik AI ---\n{report}")
             else:
                 print(f"\n--- AI Analysis ---\n{report}")
-
 
             if args.lang == "pl":
                 prompt = "Wybierz akcję: [K] Kosz | [A] Archiwum | [P] Przeczytane | [Z] Zignoruj: "
@@ -165,10 +178,10 @@ if __name__ == "__main__":
                 print(f"👁️ {status}")
             else:
                 print("⏭️ Zignorowano." if args.lang == "pl" else "⏭️ Ignored.")
-            
-            print("-" * 50)
-
-        mail_connection.expunge()
+        
+        manager.mail.expunge()
+        print("\n[System] Czyszczenie serwera zakończone." if args.lang == "pl" else "\n[System] Server expunged.")
+        print("-" * 50)
         
         print("\n" + "="*50)
         empty_prompt = "🗑️ Czy chcesz trwale opróżnić Kosz ze wszystkich starych wiadomości? (t/N): " if args.lang == "pl" else "🗑️ Empty Trash completely? (y/N): "

@@ -7,31 +7,38 @@ class EmailManager:
         self.lang = lang
 
     def mark_as_read(self, email_id):
-        """Applies the \\Seen flag to the specified email."""
+        """Applies the Seen flag to the specified email using strictly formatted IMAP lists."""
         try:
-            self.mail.store(email_id, '+FLAGS', '\\Seen')
-            return f"[{email_id}] Oznaczono jako przeczytane." if self.lang == "pl" else f"[{email_id}] Marked as read."
+            self.mail.store(email_id, '+FLAGS', '(\\Seen)')
+            clean_id = email_id.decode() if isinstance(email_id, bytes) else email_id
+            return f"[{clean_id}] Oznaczono jako przeczytane." if self.lang == "pl" else f"[{clean_id}] Marked as read."
         except Exception as e:
             return f"Błąd: {e}" if self.lang == "pl" else f"Error: {e}"
 
     def move_to_folder(self, email_id, folder_name):
-        """Moves an email to a specified folder via IMAP COPY and EXPUNGE commands."""
+        """Moves an email safely using COPY and marking as Deleted."""
         try:
-            # Ensure the target folder exists (ignores if already created)
-            self.mail.create(f'"{folder_name}"')
+            clean_id = email_id.decode() if isinstance(email_id, bytes) else email_id
             
-            # Execute copy-and-delete sequence for moving
+            if folder_name not in ["[Gmail]/Wszystkie", "[Gmail]/All Mail"]:
+                self.mail.create(f'"{folder_name}"')
+            
+            self.mail.store(email_id, '+FLAGS', '(\\Seen)')
+            
+            if folder_name in ["[Gmail]/Wszystkie", "[Gmail]/All Mail"]:
+                self.mail.store(email_id, '+FLAGS', '(\\Deleted)')
+                return f"[{clean_id}] Zarchiwizowano w zakładce Wszystkie." if self.lang == "pl" else f"[{clean_id}] Archived."
+            
             result, _ = self.mail.copy(email_id, f'"{folder_name}"')
             
             if result == 'OK':
-                self.mail.store(email_id, '+FLAGS', '\\Deleted')
-                return f"[{email_id}] Przeniesiono do: {folder_name}" if self.lang == "pl" else f"[{email_id}] Moved to: {folder_name}"
+                self.mail.store(email_id, '+FLAGS', '(\\Deleted)')
+                return f"[{clean_id}] Przeniesiono do: {folder_name}" if self.lang == "pl" else f"[{clean_id}] Moved to: {folder_name}"
             else:
-                return f"[{email_id}] Błąd kopiowania." if self.lang == "pl" else f"[{email_id}] Copy operation failed."
+                return f"[{clean_id}] Błąd kopiowania." if self.lang == "pl" else f"[{clean_id}] Copy operation failed."
         except Exception as e:
             return f"Błąd operacji IMAP: {e}" if self.lang == "pl" else f"IMAP operation error: {e}"
 
- 
     def archive_email(self, email_id, archive_folder=None):
         """Moves an email to the Archive folder."""
         if archive_folder is None:
@@ -56,7 +63,7 @@ class EmailManager:
             if status == 'OK':
                 email_ids = response[0].split()
                 for e_id in email_ids:
-                    self.mail.store(e_id, '+FLAGS', '\\Deleted')
+                    self.mail.store(e_id, '+FLAGS', '(\\Deleted)')
                 self.mail.expunge()
                 
             self.mail.select('INBOX')
