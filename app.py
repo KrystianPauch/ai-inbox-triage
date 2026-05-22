@@ -3,6 +3,7 @@ import customtkinter as ctk
 import imaplib
 from dotenv import load_dotenv
 from email_manager import EmailManager
+from email_fetcher import check_inbox
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -17,6 +18,9 @@ class EmailTriageApp(ctk.CTk):
         self.current_lang = "pl"
         self.imap_server = 'imap.gmail.com'
 
+        self.emails_cache = []
+        self.current_email_index = 0
+
         self.login_frame = ctk.CTkFrame(self)
         self.main_frame = ctk.CTkFrame(self)
 
@@ -28,7 +32,7 @@ class EmailTriageApp(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def build_login_screen(self):
-        """Buduje interfejs ekranu logowania."""
+        """Builds the login screen interface."""
         load_dotenv()
         
         self.login_frame.pack(expand=True, fill="both", padx=50, pady=50)
@@ -56,7 +60,7 @@ class EmailTriageApp(ctk.CTk):
         self.login_btn.pack(pady=20)
 
     def build_main_screen(self):
-        """Buduje interfejs głównego panelu aplikacji."""
+        """Builds the interface of the main application panel."""
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(1, weight=1)
 
@@ -92,7 +96,7 @@ class EmailTriageApp(ctk.CTk):
         self.login_frame.pack(expand=True, fill="both")
 
     def show_main_screen(self):
-        """Przełącza widok na główny panel i aktualizuje teksty w zależności od języka."""
+        """Switches the view to the main panel and updates the texts depending on the language."""
         self.login_frame.pack_forget()
         self.main_frame.pack(expand=True, fill="both")
         
@@ -112,7 +116,7 @@ class EmailTriageApp(ctk.CTk):
             self.btn_ignore.configure(text="Zignoruj")
 
     def perform_login(self):
-        """Ustanawia stałe połączenie z serwerem i przechodzi do głównego ekranu."""
+        """Establishes a permanent connection to the server and goes to the main screen."""
         email = self.email_entry.get().strip()
         password = self.password_entry.get().strip()
         self.current_lang = self.lang_var.get()
@@ -142,7 +146,7 @@ class EmailTriageApp(ctk.CTk):
         self.textbox.insert("end", "[System] Pobieranie danych (wkrótce podpięte pod AI)...\n")
 
     def perform_logout(self):
-        """Zamyka bezpiecznie sesję i wraca do ekranu logowania."""
+        """Safely closes the session and returns to the login screen."""
         if self.manager:
             try:
                 self.manager.mail.logout()
@@ -153,7 +157,7 @@ class EmailTriageApp(ctk.CTk):
         self.show_login_screen()
 
     def on_closing(self):
-        """Gwarantuje, że przy zamknięciu okna sesja IMAP nie zawiśnie na serwerze."""
+        """Ensures that when the window is closed, the IMAP session does not hang on the server."""
         self.perform_logout()
         self.destroy()
 
