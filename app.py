@@ -1,9 +1,11 @@
 import os
 import customtkinter as ctk
 import imaplib
+import threading
 from dotenv import load_dotenv
 from email_manager import EmailManager
 from email_fetcher import check_inbox
+from ai_analyzer import analyze_emails
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -79,16 +81,16 @@ class EmailTriageApp(ctk.CTk):
         self.bottom_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.bottom_frame.grid(row=2, column=0, padx=0, pady=10, sticky="ew")
 
-        self.btn_trash = ctk.CTkButton(self.bottom_frame, text="Kosz", fg_color="#8B0000", hover_color="#333333")
+        self.btn_trash = ctk.CTkButton(self.bottom_frame, text="Kosz", fg_color="#8B0000", hover_color="#333333", command=lambda: self.process_action("trash"))
         self.btn_trash.pack(side="left", padx=5, expand=True, fill="x")
 
-        self.btn_archive = ctk.CTkButton(self.bottom_frame, text="Archiwum", fg_color="#555555", hover_color="#333333")
+        self.btn_archive = ctk.CTkButton(self.bottom_frame, text="Archiwum", fg_color="#555555", hover_color="#333333", command=lambda: self.process_action("archive"))
         self.btn_archive.pack(side="left", padx=5, expand=True, fill="x")
 
-        self.btn_read = ctk.CTkButton(self.bottom_frame, text="Przeczytane", fg_color="#006400", hover_color="#333333")
+        self.btn_read = ctk.CTkButton(self.bottom_frame, text="Przeczytane", fg_color="#006400", hover_color="#333333", command=lambda: self.process_action("read"))
         self.btn_read.pack(side="left", padx=5, expand=True, fill="x")
 
-        self.btn_ignore = ctk.CTkButton(self.bottom_frame, text="Zignoruj", fg_color="transparent", hover_color="#333333", border_width=1)
+        self.btn_ignore = ctk.CTkButton(self.bottom_frame, text="Zignoruj", fg_color="transparent", hover_color="#333333", border_width=1, command=lambda: self.process_action("ignore"))
         self.btn_ignore.pack(side="left", padx=(5, 10), expand=True, fill="x")
 
     def show_login_screen(self):
@@ -143,7 +145,102 @@ class EmailTriageApp(ctk.CTk):
             self.status_label.configure(text=err_msg, text_color="red")
 
     def fetch_emails(self):
-        self.textbox.insert("end", "[System] Pobieranie danych (wkrótce podpięte pod AI)...\n")
+        self.fetch_btn.configure(state="disabled")
+        self.textbox.delete("1.0", "end")
+        
+        msg = "Pobieranie i analiza AI w toku...\n" if self.current_lang == "pl" else "Fetching & AI analysis in progress...\n"
+        self.textbox.insert("end", f"[System] {msg}")
+        
+        thread = threading.Thread(target=self._fetch_emails_thread)
+        thread.daemon = True
+        thread.start()
+
+    def _fetch_emails_thread(self):
+        try:
+            if self.manager:
+                try:
+                    self.manager.mail.select("INBOX", readonly=False)
+                    self.manager.mail.expunge()
+                except:
+                    pass
+
+            fetched_data, _ = check_inbox(language=self.current_lang, limit=3, mode='all')
+            
+            for email in fetched_data:
+                try:
+                    report_text = analyze_emails(email, self.current_lang)
+                    email['ai_report'] = str(report_text)
+                except Exception as ai_err:
+                    email['ai_report'] = f"[Llama 3 Error: {ai_err}]"
+            
+            self.emails_cache = fetched_data
+            self.current_email_index = 0
+            
+            self.after(0, self._update_ui_after_fetch)
+            
+        except Exception as e:
+            err_msg = f"{e}\n"
+            self.after(0, lambda: self.textbox.insert("end", f"[Error] {err_msg}"))
+            self.after(0, lambda: self.fetch_btn.configure(state="normal"))
+
+    def _update_ui_after_fetch(self):
+        self.fetch_btn.configure(state="normal")
+        
+        msg = f"Zakończono. Znaleziono: {len(self.emails_cache)} wiadomości.\n" if self.current_lang == "pl" else f"Done. Found: {len(self.emails_cache)} messages.\n"
+        self.textbox.insert("end", f"[System] {msg}")
+        
+        if self.emails_cache:
+            self.display_current_email()
+
+    def display_current_email(self):
+        self.textbox.delete("1.0", "end")
+        
+        if not self.emails_cache or self.current_email_index >= len(self.emails_cache):
+            msg = "Brak wiadomości." if self.current_lang == "pl" else "No messages."
+            self.textbox.insert("end", f"\n=== {msg} ===\n")
+            return
+
+        email_data = self.emails_cache[self.current_email_index]
+        
+        msg = f"Wiadomość {self.current_email_index + 1} / {len(self.emails_cache)}\n" if self.current_lang == "pl" else f"Message {self.current_email_index + 1} / {len(self.emails_cache)}\n"
+        self.textbox.insert("end", msg)
+        self.textbox.insert("end", "="*50 + "\n")
+        
+        sender = email_data.get('sender', 'Unknown')
+        subject = email_data.get('subject', 'No Subject')
+        ai_report = email_data.get('ai_report', '[Błąd analizy AI]')
+        
+        self.textbox.insert("end", f"Od: {sender}\nTemat: {subject}\n")
+        self.textbox.insert("end", "-"*50 + "\n")
+        self.textbox.insert("end", f"{ai_report}\n")
+        self.textbox.insert("end", "="*50 + "\n")
+
+    def process_action(self, action):
+        if not self.emails_cache or self.current_email_index >= len(self.emails_cache):
+            return
+
+        email_data = self.emails_cache[self.current_email_index]
+        email_id = email_data.get('id')
+        
+        print(f"\n[DEBUG] Action: {action.upper()}")
+        print(f"[DEBUG] Raw email_id from cache: {email_id} (Type: {type(email_id)})")
+
+        if self.manager and action != "ignore":
+            try:
+                if action == "trash":
+                    self.manager.trash_email(email_id)
+                elif action == "archive":
+                    self.manager.archive_email(email_id)
+                elif action == "read":
+                    self.manager.mark_as_read(email_id)
+                print("[DEBUG] IMAP command completed without python exceptions.")
+            except Exception as e:
+                print(f"[DEBUG] IMAP command failed with exception: {e}")
+                self.textbox.insert("end", f"\n[Error] {e}\n")
+                return
+
+        self.current_email_index += 1
+        self.display_current_email()
 
     def perform_logout(self):
         """Safely closes the session and returns to the login screen."""

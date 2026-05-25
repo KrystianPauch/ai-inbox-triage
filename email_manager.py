@@ -39,17 +39,27 @@ class EmailManager:
         except Exception as e:
             return f"Błąd operacji IMAP: {e}" if self.lang == "pl" else f"IMAP operation error: {e}"
 
-    def archive_email(self, email_id, archive_folder=None):
-        """Moves an email to the Archive folder."""
-        if archive_folder is None:
-            archive_folder = "[Gmail]/All Mail" if self.lang == "en" else "[Gmail]/Wszystkie"
-        return self.move_to_folder(email_id, archive_folder)
+    def archive_email(self, email_id):
+        self.mail.select("INBOX", readonly=False)
+        folder = '"[Gmail]/All Mail"' if self.lang == "en" else '"[Gmail]/Wszystkie"'
+        self.mail.copy(email_id, folder)
+        self.mail.store(email_id, '+FLAGS', '\\Deleted')
 
-    def trash_email(self, email_id, trash_folder=None):
-        """Moves an email to the Trash folder."""
-        if trash_folder is None:
-            trash_folder = "[Gmail]/Trash" if self.lang == "en" else "[Gmail]/Kosz"
-        return self.move_to_folder(email_id, trash_folder)
+    def trash_email(self, email_id):
+        self.mail.select("INBOX", readonly=False)
+        folder = '"[Gmail]/Trash"' if self.lang == "en" else '"[Gmail]/Kosz"'
+        self.mail.copy(email_id, folder)
+        self.mail.store(email_id, '+FLAGS', '\\Deleted')
+
+    def mark_as_read(self, email_id):
+        typ, _ = self.mail.select("INBOX", readonly=False)
+        print(f"\n[IMAP] Stan otwarcia INBOX: {typ}")
+        
+        typ_seq, data_seq = self.mail.store(email_id, '+FLAGS', '\\Seen')
+        print(f"[IMAP] Odpowiedź dla Sekwencyjnego ID: {typ_seq} | Dane: {data_seq}")
+        
+        typ_uid, data_uid = self.mail.uid('STORE', email_id, '+FLAGS', '\\Seen')
+        print(f"[IMAP] Odpowiedź dla Unikalnego UID: {typ_uid} | Dane: {data_uid}")
 
     def empty_trash(self, trash_folder=None):
         """Permanently deletes all emails in the specified Trash folder."""
@@ -70,3 +80,24 @@ class EmailManager:
             return "Kosz został trwale opróżniony." if self.lang == "pl" else "Trash emptied successfully."
         except Exception as e:
             return f"Błąd opróżniania kosza: {e}" if self.lang == "pl" else f"Error emptying trash: {e}"
+        
+    def process_action(self, action):
+        if not self.emails_cache or self.current_email_index >= len(self.emails_cache):
+            return
+
+        email_id = self.emails_cache[self.current_email_index].get('id')
+
+        if self.manager and action != "ignore":
+            try:
+                if action == "trash":
+                    self.manager.trash_email(email_id)
+                elif action == "archive":
+                    self.manager.archive_email(email_id)
+                elif action == "read":
+                    self.manager.mark_as_read(email_id)
+            except Exception as e:
+                self.textbox.insert("end", f"\n[IMAP Error] {e}\n")
+                return
+
+        self.current_email_index += 1
+        self.display_current_email()

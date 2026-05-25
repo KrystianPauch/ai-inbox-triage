@@ -4,32 +4,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def analyze_emails(emails, lang="pl"):
-    """
-    Wysyła dane do lokalnej Ollamy z dynamicznym wyborem języka.
-    """
-    if not emails:
-        return "Brak wiadomości do analizy." if lang == "pl" else "No emails to analyze."
+def analyze_emails(email_data, lang="pl"):
+    if not email_data:
+        return "Brak danych." if lang == "pl" else "No data."
 
     client = OpenAI(
         base_url="http://localhost:11434/v1",
         api_key="ollama" 
     )
 
-    email_context = ""
-    for idx, mail in enumerate(emails):
-        email_context += f"\n--- Email #{idx+1} ---\n"
-        email_context += f"Od: {mail['sender']}\n"
-        email_context += f"Data: {mail['date']}\n" # Wstrzykiwanie daty do kontekstu AI
-        email_context += f"Temat: {mail['subject']}\n"
-        email_context += f"Treść: {mail['body'][:500]}\n"
+    email_context = f"Od: {email_data.get('sender', '')}\n"
+    email_context += f"Data: {email_data.get('date', '')}\n"
+    email_context += f"Temat: {email_data.get('subject', '')}\n"
+    email_context += f"Treść: {email_data.get('body', '')[:500]}\n"
 
     if lang == "pl":
         prompt = f"""Jesteś zaawansowanym asystentem AI ds. zarządzania pocztą. 
 Twoim zadaniem jest analiza e-maili. MUSISZ ODPOWIADAĆ WYŁĄCZNIE W JĘZYKU POLSKIM. Zignoruj inne języki.
-ZABRONIONE JEST używanie jakichkolwiek wstępów typu "Here is the analysis", "Oto analiza", itp. Zwróć od razu sam wynik w wymaganym formacie.
+ZABRONIONE JEST używanie jakichkolwiek wstępów. Zwróć od razu sam wynik w wymaganym formacie.
 
-Dla każdej wiadomości zwróć ściśle poniższy format:
+Dla wiadomości zwróć ściśle poniższy format:
 - [AUTOR]: (Imię, nazwisko lub nazwa firmy) (podaj pełny adres e-mail w nawiasach)
 - [DATA]: (Przepisz dokładnie datę i godzinę podaną w kontekście wiadomości)
 - [TEMAT]: (Oryginalny temat wiadomości)
@@ -38,13 +32,13 @@ Dla każdej wiadomości zwróć ściśle poniższy format:
 - [PODSUMOWANIE]: Dokładnie jedno zdanie po polsku.
 - [AKCJA]: Krótka porada (np. 'Odpisz dzisiaj', 'Archiwizuj', 'Zignoruj').
 
-Wiadomości:
+Wiadomość:
 {email_context}"""
     else:
-        prompt = f"""You are an elite AI Email Triage Specialist. Analyze the following emails.
-DO NOT include any conversational filler like 'Here is the analysis...'. Output strictly the requested format immediately.
+        prompt = f"""You are an elite AI Email Triage Specialist. Analyze the email.
+DO NOT include any conversational filler. Output strictly the requested format immediately.
 
-For each email, provide the following fields in English:
+For the email, provide the following fields in English:
 - [SENDER]: (Name or company) (include full email address in parentheses)
 - [DATE]: (Copy exactly the date and time provided in the email context)
 - [SUBJECT]: (Original email subject)
@@ -53,7 +47,7 @@ For each email, provide the following fields in English:
 - [SUMMARY]: A concise, one-sentence summary.
 - [ACTION]: Suggest a quick next step.
 
-Emails:
+Email:
 {email_context}"""
 
     try:
@@ -64,4 +58,4 @@ Emails:
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"Błąd analizy AI: {e}" if lang == "pl" else f"AI Analysis failed: {e}"
+        return f"Error: {e}"
