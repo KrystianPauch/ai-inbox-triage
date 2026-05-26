@@ -93,6 +93,9 @@ class EmailTriageApp(ctk.CTk):
         self.btn_next = ctk.CTkButton(self.bottom_frame, text="Następna ➔", fg_color="transparent", hover_color="#333333", border_width=1, command=self.next_email)
         self.btn_next.pack(side="left", padx=(3, 10), expand=True, fill="x")
 
+        self.empty_trash_btn = ctk.CTkButton(top_frame, text="Opróżnij Kosz", fg_color="#8B0000", hover_color="#550000", command=self.empty_trash_action)
+        self.empty_trash_btn.pack(side="right", padx=10, pady=10)
+
     def show_login_screen(self):
         self.main_frame.pack_forget()
         self.login_frame.pack(expand=True, fill="both")
@@ -263,6 +266,14 @@ class EmailTriageApp(ctk.CTk):
         if self.emails_cache and self.current_email_index > 0:
             self.current_email_index -= 1
             self.display_current_email()
+
+    def empty_trash_action(self):
+        if self.manager:
+            self.textbox.insert("end", "\n[System] Trwa opróżnianie kosza na serwerze...\n")
+            self.update_idletasks()
+            
+            wynik = self.manager.empty_trash()
+            self.textbox.insert("end", f"[System] {wynik}\n")
 
     def perform_logout(self):
         if self.manager:
