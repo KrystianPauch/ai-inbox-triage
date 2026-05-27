@@ -65,13 +65,12 @@ def get_email_body(msg):
             pass
     return body.strip()
 
-def check_inbox(language='en', limit=10, mode='unread', search_keyword=None):
+def check_inbox(mail_connection, language='en', limit=10, mode='unread', search_keyword=None):
     emails_data = [] 
     limit = min(limit, 10)
 
     try:
-        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(EMAIL, PASSWORD)
+        mail = mail_connection
         mail.select('inbox')
         
         if search_keyword:

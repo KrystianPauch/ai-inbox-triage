@@ -34,27 +34,47 @@ class EmailTriageApp(ctk.CTk):
     def build_login_screen(self):
         load_dotenv()
         self.login_frame.pack(expand=True, fill="both", padx=50, pady=50)
-        ctk.CTkLabel(self.login_frame, text="Logowanie IMAP", font=("Arial", 24, "bold")).pack(pady=(40, 20))
 
-        self.email_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Adres Email", width=300)
+        self.title_label = ctk.CTkLabel(self.login_frame, text="Connect to Gmail", font=("Arial", 24, "bold"))
+        self.title_label.pack(pady=(40, 20))
+
+        self.email_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Email Address", width=300)
         self.email_entry.pack(pady=10)
         if os.getenv('EMAIL_ADDRESS'):
             self.email_entry.insert(0, os.getenv('EMAIL_ADDRESS'))
 
-        self.password_entry = ctk.CTkEntry(self.login_frame, placeholder_text="Hasło App Password", show="*", width=300)
+        self.password_entry = ctk.CTkEntry(self.login_frame, placeholder_text="App Password", show="*", width=300)
         self.password_entry.pack(pady=10)
         if os.getenv('EMAIL_PASSWORD'):
             self.password_entry.insert(0, os.getenv('EMAIL_PASSWORD'))
 
-        self.lang_var = ctk.StringVar(value="pl")
-        self.lang_menu = ctk.CTkOptionMenu(self.login_frame, values=["pl", "en"], variable=self.lang_var, width=300)
+        self.lang_var = ctk.StringVar(value="English")
+        self.lang_menu = ctk.CTkOptionMenu(
+            self.login_frame, 
+            values=["English", "Polski"], 
+            variable=self.lang_var, 
+            width=300,
+            command=self.change_login_language
+        )
         self.lang_menu.pack(pady=10)
 
         self.status_label = ctk.CTkLabel(self.login_frame, text="", text_color="red")
         self.status_label.pack(pady=5)
 
-        self.login_btn = ctk.CTkButton(self.login_frame, text="Zaloguj", command=self.perform_login, width=300)
+        self.login_btn = ctk.CTkButton(self.login_frame, text="Start", command=self.perform_login, width=300)
         self.login_btn.pack(pady=20)
+
+    def change_login_language(self, choice):
+        if choice == "English":
+            self.title_label.configure(text="Connect to Gmail")
+            self.email_entry.configure(placeholder_text="Email Address")
+            self.password_entry.configure(placeholder_text="App Password")
+            self.login_btn.configure(text="Start")
+        else:
+            self.title_label.configure(text="Połącz z pocztą Gmail")
+            self.email_entry.configure(placeholder_text="Adres Email")
+            self.password_entry.configure(placeholder_text="Hasło aplikacji")
+            self.login_btn.configure(text="Rozpocznij")
 
     def build_main_screen(self):
         self.main_frame.grid_columnconfigure(0, weight=1)
@@ -72,8 +92,20 @@ class EmailTriageApp(ctk.CTk):
         self.textbox = ctk.CTkTextbox(self.main_frame, font=("Consolas", 13), wrap="word")
         self.textbox.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
 
+        self.folder_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.folder_frame.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        self.folder_entry = ctk.CTkComboBox(self.folder_frame, values=["-"], width=200)
+        self.folder_entry.pack(side="left", padx=5)
+
+        self.btn_new_folder = ctk.CTkButton(self.folder_frame, text="Stwórz folder", fg_color="#4A4A4A", hover_color="#333333", command=self.create_folder_action)
+        self.btn_new_folder.pack(side="left", padx=5)
+
+        self.btn_assign_folder = ctk.CTkButton(self.folder_frame, text="Przypisz mail", command=self.assign_to_folder_action)
+        self.btn_assign_folder.pack(side="left", padx=5)
+
         self.bottom_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.bottom_frame.grid(row=2, column=0, padx=0, pady=10, sticky="ew")
+        self.bottom_frame.grid(row=3, column=0, padx=0, pady=10, sticky="ew")
 
         self.btn_trash = ctk.CTkButton(self.bottom_frame, text="Kosz", fg_color="#8B0000", hover_color="#333333", command=lambda: self.process_action("trash"))
         self.btn_trash.pack(side="left", padx=3, expand=True, fill="x")
@@ -113,6 +145,10 @@ class EmailTriageApp(ctk.CTk):
             self.btn_ignore.configure(text="Ignore")
             self.btn_prev.configure(text="⬅ Previous")
             self.btn_next.configure(text="Next ➔")
+            self.empty_trash_btn.configure(text="Empty Trash")
+            self.folder_entry.set("Folder name...")
+            self.btn_new_folder.configure(text="Create folder")
+            self.btn_assign_folder.configure(text="Assign email")
         else:
             self.fetch_btn.configure(text="Pobierz i Analizuj")
             self.logout_btn.configure(text="Wyloguj")
@@ -122,11 +158,16 @@ class EmailTriageApp(ctk.CTk):
             self.btn_ignore.configure(text="Zignoruj")
             self.btn_prev.configure(text="⬅ Poprzednia")
             self.btn_next.configure(text="Następna ➔")
+            self.empty_trash_btn.configure(text="Opróżnij Kosz")
+            self.folder_entry.set("Nazwa folderu...")
+            self.btn_new_folder.configure(text="Stwórz folder")
+            self.btn_assign_folder.configure(text="Przypisz mail")
 
     def perform_login(self):
         email = self.email_entry.get().strip()
         password = self.password_entry.get().strip()
-        self.current_lang = self.lang_var.get()
+        wybrany_jezyk = self.lang_var.get()
+        self.current_lang = "pl" if wybrany_jezyk == "Polski" else "en"
 
         if not email or not password:
             self.status_label.configure(text="Wpisz email i hasło!" if self.current_lang == "pl" else "Enter email and password!")
@@ -158,8 +199,8 @@ class EmailTriageApp(ctk.CTk):
 
     def _fetch_emails_thread(self):
         try:
-            fetched_data, _ = check_inbox(language=self.current_lang, limit=3, mode='all')
-            
+            fetched_data, _ = check_inbox(self.manager.mail, language=self.current_lang, limit=5, mode='all')
+
             if self.manager and fetched_data:
                 self.manager.mail.select("INBOX", readonly=False)
                 for email_item in fetched_data:
@@ -192,6 +233,17 @@ class EmailTriageApp(ctk.CTk):
         self.fetch_btn.configure(state="normal")
         msg = f"Zakończono. Znaleziono: {len(self.emails_cache)} wiadomości.\n" if self.current_lang == "pl" else f"Done. Found: {len(self.emails_cache)} messages.\n"
         self.textbox.insert("end", f"[System] {msg}")
+
+        if self.manager:
+            katalogi = self.manager.get_folders()
+            if katalogi:
+                self.folder_entry.configure(values=katalogi)
+                self.folder_entry.set(katalogi[0])
+            else:
+                blad = "Błąd pobierania" if self.current_lang == "pl" else "Fetch error"
+                self.folder_entry.configure(values=[blad])
+                self.folder_entry.set(blad)
+                
         if self.emails_cache:
             self.display_current_email()
 
@@ -211,14 +263,19 @@ class EmailTriageApp(ctk.CTk):
         subject = email_data.get('subject', 'No Subject')
         ai_report = email_data.get('ai_report', '[Błąd analizy AI]')
         
-        self.textbox.insert("end", f"Od: {sender}\nTemat: {subject}\n")
+        if self.current_lang == "en":
+            self.textbox.insert("end", f"From: {sender}\nSubject: {subject}\n")
+        else:
+            self.textbox.insert("end", f"Od: {sender}\nTemat: {subject}\n")
+            
         self.textbox.insert("end", "-"*50 + "\n")
         
         status = email_data.get('ui_status')
         if status:
-            self.textbox.insert("end", f">>> STATUS AKCJI: {status} <<<\n")
+            naglowek_statusu = "STATUS AKCJI" if self.current_lang == "pl" else "ACTION STATUS"
+            self.textbox.insert("end", f">>> {naglowek_statusu}: {status} <<<\n")
             self.textbox.insert("end", "-"*50 + "\n")
-            
+
         self.textbox.insert("end", f"{ai_report}\n")
         self.textbox.insert("end", "="*50 + "\n")
 
@@ -258,9 +315,12 @@ class EmailTriageApp(ctk.CTk):
                 self.textbox.insert("end", f"\n[Error] {e}\n")
 
     def next_email(self):
-        if self.emails_cache and self.current_email_index < len(self.emails_cache) - 1:
-            self.current_email_index += 1
-            self.display_current_email()
+        if self.emails_cache:
+            if self.current_email_index < len(self.emails_cache) - 1:
+                self.current_email_index += 1
+                self.display_current_email()
+            else:
+                self.fetch_emails()
 
     def prev_email(self):
         if self.emails_cache and self.current_email_index > 0:
@@ -269,11 +329,48 @@ class EmailTriageApp(ctk.CTk):
 
     def empty_trash_action(self):
         if self.manager:
-            self.textbox.insert("end", "\n[System] Trwa opróżnianie kosza na serwerze...\n")
+            msg = "Trwa opróżnianie kosza na serwerze...\n" if self.current_lang == "pl" else "Emptying trash on server...\n"
+            self.textbox.insert("end", f"\n[System] {msg}")
             self.update_idletasks()
             
             wynik = self.manager.empty_trash()
             self.textbox.insert("end", f"[System] {wynik}\n")
+
+    def create_folder_action(self):
+        if self.manager:
+            folder_name = self.folder_entry.get().strip()
+            if not folder_name:
+                msg = "\n[System] Wpisz nazwę folderu w pole tekstowe!\n" if self.current_lang == "pl" else "\n[System] Enter folder name in the field!\n"
+                self.textbox.insert("end", msg)
+                return
+            
+            wynik = self.manager.create_folder(folder_name)
+            self.textbox.insert("end", f"\n[System] {wynik}\n")
+
+    def assign_to_folder_action(self):
+        if not self.emails_cache or self.current_email_index >= len(self.emails_cache):
+            return
+
+        folder_name = self.folder_entry.get().strip()
+        if not folder_name:
+            msg = "\n[System] Wpisz nazwę folderu docelowego!\n" if self.current_lang == "pl" else "\n[System] Enter target folder name!\n"
+            self.textbox.insert("end", msg)
+            return
+
+        email_data = self.emails_cache[self.current_email_index]
+        email_uid = email_data.get('email_uid')
+
+        if not email_uid:
+            self.textbox.insert("end", "\n[Error] Brak przypisanego identyfikatora UID.\n" if self.current_lang == "pl" else "\n[Error] No UID assigned.\n")
+            return
+
+        if self.manager:
+            try:
+                status_text = self.manager.move_email(email_uid, folder_name)
+                email_data['ui_status'] = f"{status_text} -> {folder_name} 📁"
+                self.display_current_email()
+            except Exception as e:
+                self.textbox.insert("end", f"\n[Error] {e}\n")
 
     def perform_logout(self):
         if self.manager:
